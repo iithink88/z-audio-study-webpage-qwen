@@ -1016,6 +1016,57 @@ def render_html(
     return target
 
 
+def make_single_file(html_path: Path, audio_path: Path, out_path: Path) -> bool:
+    """把生成的网页合并成单文件（内联音频为 data URI）。
+
+    优先复用 single-file-webpage 技能（更通用，可内联任意本地资源）；
+    若它不存在，则降级为内置的「仅内联音频」实现，保证本技能独立可用。
+    """
+    sf = Path(__file__).resolve().parent.parent.parent / "single-file-webpage" / "scripts" / "singlefile.py"
+    if sf.exists():
+        try:
+            proc = run_command(
+                [sys.executable, str(sf), "--html", str(html_path), "--out", str(out_path)],
+                timeout=300,
+            )
+            if out_path.exists() and proc.returncode == 0:
+                _tidy_single_file_footer(out_path)
+                return True
+        except Exception as exc:  # noqa: BLE001
+            print(f"single-file: singlefile.py 调用失败，降级内置内联 ({exc})", file=sys.stderr)
+    return _inline_audio_fallback(html_path, audio_path, out_path)
+
+
+def _inline_audio_fallback(html_path: Path, audio_path: Path, out_path: Path) -> bool:
+    if not audio_path.exists():
+        return False
+    mime = mimetypes.guess_type(str(audio_path))[0] or "audio/mpeg"
+    b64 = base64.b64encode(audio_path.read_bytes()).decode("ascii")
+    data_uri = f"data:{mime};base64,{b64}"
+    text = html_path.read_text(encoding="utf-8")
+    new_text = re.sub(
+        r"<audio[^>]*>.*?</audio>",
+        f'<audio id="player" controls preload="metadata" src="{data_uri}"></audio>',
+        text,
+        flags=re.S,
+    )
+    out_path.write_text(new_text, encoding="utf-8")
+    _tidy_single_file_footer(out_path)
+    return True
+
+
+def _tidy_single_file_footer(out_path: Path) -> None:
+    try:
+        text = out_path.read_text(encoding="utf-8")
+        text = text.replace(
+            "Report: qwen-analysis.json / run-report.json",
+            "单文件版：音频已内联，分析数据见同目录 JSON 文件",
+        )
+        out_path.write_text(text, encoding="utf-8")
+    except Exception:
+        pass
+
+
 def validate_html_media(html_path: Path, root: Path) -> list[str]:
     from html.parser import HTMLParser
     from urllib.parse import unquote
@@ -1147,6 +1198,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--language", default="zh", help="Whisper/DashScope language code")
     parser.add_argument("--skip-transcribe", action="store_true", help="Skip transcription (needs --transcript)")
     parser.add_argument("--mock-analysis", action="store_true", help="Render with mock analysis without API call")
+    parser.add_argument("--single-file", action="store_true",
+                        help="把音频内联进 HTML，直接产出自包含的单文件网页（无需任何周边文件，便于分享）")
     return parser.parse_args(argv)
 
 
@@ -1277,6 +1330,12 @@ def main(argv: list[str] | None = None) -> int:
     if leaked:
         print(f"secret-leak-detected:{leaked}", file=sys.stderr)
         return 5
+    if args.single_file:
+        ok = make_single_file(html_path, player_audio, html_path)
+        if ok:
+            print("single-file: 已内联音频，生成单文件网页", file=sys.stderr)
+        else:
+            print("single-file: 生成失败，已保留多文件版", file=sys.stderr)
     print(html_path)
     print(f"duration={seconds_to_label(duration)}")
     print(f"transcript={transcript_status}")
