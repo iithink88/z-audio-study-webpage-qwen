@@ -45,6 +45,11 @@ cp -r z-audio-study-webpage-qwen ~/.workbuddy/skills/
    python audio_study.py --audio 音频.mp3 --title 主题
    ```
 
+   > 💡 **想直接分享？加 `--single-file`**：网页会把音频内联进 HTML，生成一个不依赖任何周边文件的单文件 `study-summary-audio.html`，可直接微信/邮件发送。若还装了 `single-file-webpage` 技能则优先用它做通用内联，否则自动降级为内置音频内联。
+   > ```bash
+   > python audio_study.py --audio 音频.mp3 --title 主题 --single-file
+   > ```
+
 > 默认 `--asr auto`（Vosk → Whisper → DashScope 兜底），朋友**不用关心后端和模型路径**，给音频就出网页。
 
 **唯一需要朋友自己准备的**：一个能调 Qwen 文本对话的 `DASHSCOPE_API_KEY`（设成环境变量即可，**不写进文件**）。
@@ -70,6 +75,9 @@ python3 scripts/audio_study.py --audio lecture.mp3 --title "课程主题" \
 
 # C) 已有转写文本，直接分析
 python3 scripts/audio_study.py --audio lecture.mp3 --transcript transcript.txt --title "课程主题"
+
+# D) 一步出单文件网页（音频内联，直接可分享）
+python3 scripts/audio_study.py --audio lecture.mp3 --title "课程主题" --asr vosk --single-file
 ```
 
 只验证网页模板（无需密钥、无需转写）：
@@ -83,6 +91,7 @@ python3 scripts/audio_study.py --audio lecture.mp3 --title "课程主题" --mock
 ```text
 study-audio/
 ├── study-summary-audio.html   # 最终学习网页（本地音频可播放 + 时间戳跳转）
+│                              # 加 --single-file 时则为自包含单文件（音频已内联，可直接分享）
 ├── qwen-analysis.json
 ├── qwen-segments.json
 ├── transcript.txt / transcript.json
