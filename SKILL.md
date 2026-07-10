@@ -47,6 +47,8 @@ study-audio/
 
 > 原音频文件会被拷贝到输出目录，供网页 `<audio>` 直接本地播放，无需外链。
 
+> **单文件分享**：加 `--single-file` 时，`study-summary-audio.html` 会被写成**自包含单文件**——音频以 `data:` URI 内联进页面，不依赖任何周边文件，可直接双击打开或微信/邮件发送。实现上优先复用 `single-file-webpage` 技能做通用内联，若该技能未安装则自动降级为内置「仅内联音频」实现。
+
 ## 环境依赖
 
 - **Python 3.11+**（需安装 `requests`）
@@ -104,6 +106,10 @@ python "$HOME\.workbuddy\skills\z-audio-study-webpage-qwen\scripts\audio_study.p
 # 方式 C：已有转写文本，直接分析
 python "$HOME\.workbuddy\skills\z-audio-study-webpage-qwen\scripts\audio_study.py" `
   --audio "C:\path\to\audio.mp3" --transcript "C:\path\to\transcript.txt" --title "音频主题"
+
+# 方式 D：一步出单文件网页（音频内联，直接可分享）
+python "$HOME\.workbuddy\skills\z-audio-study-webpage-qwen\scripts\audio_study.py" `
+  --audio "C:\path\to\audio.mp3" --title "音频主题" --asr vosk --single-file
 ```
 
 ### macOS / Linux
@@ -165,6 +171,8 @@ python3 ~/.workbuddy/skills/z-audio-study-webpage-qwen/scripts/audio_study.py \
 5. **全局学习结构合成**：再调用一次 Qwen，把分段结果合成为：30 秒总览、学习地图、关键知识点 × 时间戳、时间线、框架矩阵、复盘问题、行动清单、局限与待核验。
 
 6. **渲染 HTML**：沿用学习网页模板；知识点卡片与时间线节点都带可点击时间戳按钮，点一下 `audio.currentTime = 该秒数` 并播放；末尾附完整转写文本（每行时间戳可点击跳转）。
+
+7. **（可选）单文件化**：若用户加了 `--single-file`，渲染后把音频内联为 `data:` URI，直接覆盖写成自包含单文件 `study-summary-audio.html`，便于分享。优先调用 `single-file-webpage` 技能的 `singlefile.py`，缺失时降级为内置内联。
 
 7. **收尾检查**：校验 HTML 本地媒体路径存在；校验 `qwen-analysis.json` 可解析；检查没有把 API key 写入任何输出文件。
 
